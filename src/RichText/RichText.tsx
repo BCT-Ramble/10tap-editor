@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Platform, StyleSheet, TextInput } from 'react-native';
 import {
   WebView,
@@ -16,6 +16,7 @@ import { isFabric } from '../utils/misc';
 
 interface RichTextProps extends WebViewProps {
   editor: EditorBridge;
+  onLoadingSuccess: (success: boolean) => void;
 }
 
 const styles = StyleSheet.create({
@@ -35,8 +36,10 @@ const DEV_SERVER_URL = 'http://localhost:3000';
 // TODO: make it a prop
 const TOOLBAR_HEIGHT = 44;
 
-export const RichText = ({ editor, ...props }: RichTextProps) => {
+export const RichText = ({ editor, onLoadingSuccess, ...props }: RichTextProps) => {
   const [loaded, setLoaded] = useState(isFabric());
+  const [isSuccessLoading, setIsSuccessLoading] = useState(false);
+  const [tryCount, setTryCount] = useState(0);
   const { keyboardHeight: iosKeyboardHeight, isKeyboardUp } = useKeyboard();
   const source: WebViewProps['source'] = editor.DEV
     ? { uri: editor.DEV_SERVER_URL || DEV_SERVER_URL }
@@ -45,7 +48,25 @@ export const RichText = ({ editor, ...props }: RichTextProps) => {
         baseUrl: editor.webviewBaseURL,
       };
 
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  
+  useEffect(() => {
+    if(!isSuccessLoading && Platform.OS === 'android'){
+      editor.webviewRef.current?.reload()
+      timerRef.current = setTimeout(() => {
+        setTryCount(pre => pre + 1)
+      }, 100)
+    }
+    if(isSuccessLoading){
+      onLoadingSuccess(true)
+    }
+    return () => {
+      clearTimeout(timerRef.current as NodeJS.Timeout)
+    }
+  }, [tryCount, isSuccessLoading]);
+
   const onWebviewMessage = (event: WebViewMessageEvent) => {
+    setIsSuccessLoading(!event.nativeEvent.loading)
     const { data } = event.nativeEvent;
     // Parse the message sent from the editor
     const { type, payload } = JSON.parse(data) as EditorMessage;
