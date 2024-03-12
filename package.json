@@ -115,8 +115,9 @@
   },
   "workspaces": [
     "example",
-    "website"
+    "website",
   ],
+  "private": true,
   "packageManager": "yarn@3.6.1",
   "engines": {
     "node": ">= 18.0.0"
